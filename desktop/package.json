@@ -1,0 +1,80 @@
+{
+  "name": "libretv-desktop",
+  "build": {
+    "files": [
+      "main.cjs",
+      "policy.cjs",
+      "assets/loading.html",
+      "assets/icon.ico",
+      "package.json"
+    ],
+    "portable": {
+      "requestExecutionLevel": "user",
+      "artifactName": "LibreTV-Desktop-${version}-win-x64.exe",
+      "unpackDirName": "LibreTV-Desktop-${version}"
+    },
+    "npmRebuild": false,
+    "directories": {
+      "buildResources": "assets",
+      "output": "release"
+    },
+    "extraResources": [
+      {
+        "from": "staged/server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!**/.env*"
+        ]
+      },
+      {
+        "from": "staged/server/node_modules",
+        "to": "server/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "staged/licenses",
+        "to": "licenses"
+      },
+      {
+        "from": "staged/LibreTV-Desktop-source.zip",
+        "to": "LibreTV-Desktop-source.zip"
+      }
+    ],
+    "copyright": "AGPL-3.0-or-later; LibreTV and contributors",
+    "appId": "io.local.libretv.desktop",
+    "productName": "LibreTV Desktop",
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker",
+      "signExecutable": false,
+      "icon": "assets/icon.ico"
+    },
+    "afterPack": "scripts/verify-package.cjs"
+  },
+  "license": "AGPL-3.0-or-later",
+  "description": "LibreTV Windows integrated desktop client",
+  "scripts": {
+    "pack": "node scripts/prepare.cjs && electron-builder --win portable --x64 --publish never",
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.1"
+  },
+  "main": "main.cjs",
+  "version": "1.1.0",
+  "private": true,
+  "author": "LibreTV Desktop Contributors"
+}

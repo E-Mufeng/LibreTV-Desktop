@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env
+.env*.local
+*.log
+*.tsbuildinfo
+desktop/staged/
+desktop/release/
+LibreTV-data/
