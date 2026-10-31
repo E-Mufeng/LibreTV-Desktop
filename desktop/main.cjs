@@ -69,12 +69,19 @@ function setupMenu() {
     ] },
     { label: '编辑', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
     { label: '视图', submenu: [{ role: 'reload', label: '刷新' }, { role: 'resetZoom', label: '实际大小' }, { role: 'zoomIn', label: '放大' }, { role: 'zoomOut', label: '缩小' }, { role: 'togglefullscreen', label: '全屏' }] },
+    { label: '导航', submenu: [
+      { label: '发现影片', accelerator: 'CommandOrControl+1', click: () => win.loadURL(origin) },
+      { label: '我的片库', accelerator: 'CommandOrControl+2', click: () => win.loadURL(`${origin}/library`) },
+      { label: '收藏待看', click: () => win.loadURL(`${origin}/library?tab=saved`) },
+      { label: '我的喜欢', click: () => win.loadURL(`${origin}/library?tab=liked`) },
+      { label: '观看记录', click: () => win.loadURL(`${origin}/library?tab=history`) },
+    ] },
     { label: '帮助', submenu: [
       { label: '开源许可', click: () => shell.openPath(helpFile('licenses/LibreTV-AGPL-3.0.txt')) },
       { label: '本版本完整源代码', click: () => shell.showItemInFolder(helpFile('LibreTV-Desktop-source.zip')) },
       { label: '关于 LibreTV Desktop', click: () => dialog.showMessageBox(win, {
         type: 'info', title: 'LibreTV Desktop', message: `LibreTV Desktop ${app.getVersion()}`,
-        detail: '基于 LibreSpark/LibreTV v2.21.1，增加组合分类选片的本地桌面整合版。\nAGPL-3.0-or-later；许可证及完整源代码随程序附带。\n第三方源保存在本机数据目录，不代表 LibreSpark 官方客户端。\n\n数据目录：' + dataDir,
+        detail: '基于 LibreSpark/LibreTV v2.21.1，增加分类选片、个人片库、本地弹幕与公开视频源的桌面整合版。\nAGPL-3.0-or-later；许可证及完整源代码随程序附带。\n第三方源保存在本机数据目录，不代表 LibreSpark 官方客户端。\n\n数据目录：' + dataDir,
       }) },
     ] },
   ]));

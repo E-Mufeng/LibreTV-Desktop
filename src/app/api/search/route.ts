@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isArchiveSource, searchArchive } from '@/lib/archive-provider';
 import { guardRequest } from '@/lib/api-guard';
 import { cmsRequestHeaders, filterAdultResults, filterRelevantResults, normalizeTitle, parseSearchList } from '@/lib/cms-parser';
 import { fetchUpstream, getCache, setCache } from '@/lib/fetch-utils';
@@ -103,6 +104,7 @@ async function searchSource(source: SourceConfig, wd: string): Promise<SourceSea
   };
 
   const run = async (): Promise<SourceSearchOutcome> => {
+    if (isArchiveSource(source.url)) return { sourceKey: source.key, ok: true, list: await searchArchive(source, wd, controller.signal) };
     const first = await fetchPage(1);
     const list = parseSearchList(first, source);
     // 源站真实总页数与配置上限取较小者；pagecount 缺失或非法时视为 1 页

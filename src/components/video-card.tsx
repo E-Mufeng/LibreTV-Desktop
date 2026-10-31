@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { SmartImage } from './smart-image';
 import { QualityBadge } from './quality-badge';
 import { useQualityProbe } from './use-quality-probe';
+import { MediaActions } from './media-actions';
 import { useInView } from './use-in-view';
 
 // —— 跨源同名聚合 ——
@@ -149,7 +150,7 @@ export function AggregatedCard({
     >
       {/* 不用 h-full：展开面板需要撑高卡片，等高裁切会让面板不可见 */}
       <div
-        className="flex h-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
+        className="flex cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
         role="button"
         tabIndex={0}
         aria-expanded={multi ? expanded : undefined}
@@ -245,6 +246,7 @@ export function AggregatedCard({
         </div>
       </div>
 
+      <div className="px-2.5 py-2 border-t border-line"><MediaActions media={{ title: group.name, year: group.year, pic: group.pic }} /></div>
       {multi && expanded && (
         <div className="border-t border-line p-2.5 animate-fade-in">
           <div className="flex items-baseline justify-between gap-2 mb-1.5">
@@ -401,8 +403,9 @@ export function DoubanCard({ item, onClick }: { item: { title: string; cover: st
   useEffect(() => setImgFailed(false), [item.cover]);
 
   return (
+    <article className="card">
     <div
-      className="card cursor-pointer hover:scale-[1.03] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      className="cursor-pointer hover:scale-[1.03] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -443,5 +446,7 @@ export function DoubanCard({ item, onClick }: { item: { title: string; cover: st
         </div>
       </div>
     </div>
+    <div className="p-1.5 border-t border-line"><MediaActions media={{ title: item.title, pic: item.cover }} compact /></div>
+    </article>
   );
 }

@@ -1,5 +1,10 @@
 'use client';
 
+import LinkToLibrary from 'next/link';
+import { isNativeVideo } from '@/lib/media-kind';
+import { DanmakuPanel } from '@/components/danmaku-panel';
+import { MediaActions } from '@/components/media-actions';
+
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -67,6 +72,7 @@ function WatchContent() {
   const [skipPanelOpen, setSkipPanelOpen] = useState(false);
   // 播放器对外暴露的精确时间读取接口（「记录当前」用），随播放器卸载置空
   const playerApiRef = useRef<PlayerSkipApi | null>(null);
+  const getPlayerApi = useCallback(() => playerApiRef.current, []);
   // 播放框：小屏「跳过标记」抽屉要按它的底边算剩余高度，避免压住画面
   const playerFrameRef = useRef<HTMLDivElement | null>(null);
   const [sheetMaxHeight, setSheetMaxHeight] = useState<number | undefined>(undefined);
@@ -287,11 +293,14 @@ function WatchContent() {
               {episodes.length > 0 && ` · 第 ${currentIndex + 1}/${episodes.length} 集`}
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <details className="relative text-xs"><summary className="btn-ghost btn-sm cursor-pointer list-none" aria-label="更多观影功能">···</summary><div className="absolute right-0 top-full z-50 bg-surface-raised border border-line rounded-lg p-3 min-w-32"><LinkToLibrary href="/library" className="block py-2">我的片库</LinkToLibrary><button className="py-2" onClick={() => window.dispatchEvent(new Event('libretv:shortcut-help'))}>快捷键帮助</button></div></details>
             <button
               className="btn-ghost btn-sm"
+              disabled={isNativeVideo(currentUrl)}
+              title={isNativeVideo(currentUrl) ? '此MP4直链支持在线播放；离线队列目前只支持HLS' : '下载本集'}
               onClick={() => {
-                if (!currentUrl) return;
+                if (!currentUrl || isNativeVideo(currentUrl)) return;
                 enqueueDownload({
                   url: currentUrl,
                   // 多集才带集数后缀；单集影片（含电影）文件名就是纯标题
@@ -314,6 +323,7 @@ function WatchContent() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-4">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
           <div>
+            <div className="mb-3"><MediaActions media={{ title: videoTitle, year: detailQuery.data?.videoInfo?.year, pic: detailQuery.data?.videoInfo?.cover, sourceKey, sourceUrl: source?.url, vodId }} /></div>
             <div ref={playerFrameRef} className="aspect-video bg-black rounded-lg overflow-hidden">
               {currentUrl ? (
                 <PlayerShell
@@ -358,6 +368,8 @@ function WatchContent() {
                 </div>
               )}
             </div>
+
+            <DanmakuPanel key={`${sourceKey}:${vodId}:${currentIndex}`} episodeKey={`${sourceKey}:${vodId}:${currentIndex}`} player={getPlayerApi} />
 
             {/* 操作栏 */}
             <div className="flex flex-wrap items-center gap-2 mt-3">

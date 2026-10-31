@@ -51,6 +51,10 @@ function HomeContent() {
   const [streamedOutcomes, setStreamedOutcomes] = useState<SourceSearchOutcome[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (searchParams.get('focus') === 'search') inputRef.current?.focus();
+  }, [searchParams]);
+
   // URL 驱动搜索：?s= 变化时回填输入框
   useEffect(() => {
     if (urlQuery) setInput(urlQuery);

@@ -14,6 +14,7 @@ import { addSearchHistory } from '@/lib/db';
 import { copyToClipboard } from '@/lib/clipboard';
 import { EmptyState, ErrorState, LoadingState } from './states';
 import { useFocusTrap } from './use-focus-trap';
+import { MediaActions } from './media-actions';
 import { Icon } from './icon';
 
 /**
@@ -157,6 +158,7 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
         </div>
 
         <div className="p-5 pt-4">
+          <div className="mb-4"><MediaActions media={{ title: item.name, year: item.year, pic: item.pic, sourceKey: item.sourceKey, sourceUrl: item.sourceUrl, vodId: item.vodId }} /></div>
           {loading && <LoadingState label="正在获取剧集信息..." />}
 
           {!loading && error && <ErrorState message={error || '获取失败'} />}

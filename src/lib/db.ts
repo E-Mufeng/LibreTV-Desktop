@@ -1,4 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
+import { personalDb, parseLibraryBackup } from './personal-library';
+import { parseHistoryBackup } from './history-backup';
 import type { SourceConfig } from './types';
 // 仅类型引入：store.ts 运行时会引用本模块，反向只取类型不会形成运行时循环
 import type { LiveProbeEntry } from './store';
@@ -216,6 +218,7 @@ export async function exportConfig(): Promise<string> {
 
   const data: Record<string, unknown> = {
     viewingHistory: JSON.stringify(history),
+    personalLibrary: JSON.stringify(await personalDb.media.toArray()),
   };
   if (settings) data[PERSIST_KEY] = settings;
 
@@ -234,6 +237,10 @@ export async function importConfig(content: string): Promise<void> {
   };
   if (config.name !== 'LibreTV-Settings') throw new Error('配置文件格式不正确');
   const data = config.data || {};
+  const personalLibrary = typeof data.personalLibrary === 'string' ? parseLibraryBackup(JSON.parse(data.personalLibrary)) : undefined;
+
+  const importedHistory = typeof data.viewingHistory === 'string' ? parseHistoryBackup(JSON.parse(data.viewingHistory)) : undefined;
+  if (personalLibrary) await personalDb.media.bulkPut(personalLibrary);
 
   if (typeof data[PERSIST_KEY] === 'string') {
     // 关键：先 flush 节流缓冲中的旧状态再写导入配置，否则缓冲会在
@@ -242,27 +249,8 @@ export async function importConfig(content: string): Promise<void> {
     localStorage.setItem(PERSIST_KEY, data[PERSIST_KEY]);
   }
 
-  if (typeof data['viewingHistory'] === 'string') {
-    // 兼容旧版历史结构（含全集 URL 列表），只迁移定位信息
-    const legacy = JSON.parse(data['viewingHistory']) as Record<string, unknown>[];
-    for (const item of legacy.slice(0, MAX_HISTORY)) {
-      const sourceKey = String(item.sourceCode || item.sourceName || '');
-      const vodId = String(item.vod_id || '');
-      const title = String(item.title || '未知视频');
-      if (!sourceKey || !vodId) continue;
-      const totalEpisodes = Array.isArray(item.episodes) ? item.episodes.length : 0;
-      await upsertHistory({
-        sourceKey,
-        vodId,
-        title,
-        episodeIndex: typeof item.episodeIndex === 'number' ? item.episodeIndex : 0,
-        totalEpisodes,
-        playbackPosition: typeof item.playbackPosition === 'number' ? item.playbackPosition : 0,
-        duration: typeof item.duration === 'number' ? item.duration : 0,
-        timestamp: typeof item.timestamp === 'number' ? item.timestamp : Date.now(),
-      });
-    }
-  }
+  if (importedHistory) await db.history.bulkPut(importedHistory);
+
 }
 
 export type { SourceConfig };

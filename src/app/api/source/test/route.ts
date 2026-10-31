@@ -3,6 +3,7 @@ import { guardRequest } from '@/lib/api-guard';
 import { checkUpstreamAllowed } from '@/lib/ssrf';
 import { fetchUpstream } from '@/lib/fetch-utils';
 import { parseSearchList } from '@/lib/cms-parser';
+import { isArchiveSource, searchArchive } from '@/lib/archive-provider';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +30,10 @@ export async function POST(req: Request) {
 
   const start = Date.now();
   try {
+    if (isArchiveSource(url)) {
+      const list = await searchArchive({ key: 'test', name: 'Internet Archive', url }, 'Big Buck Bunny');
+      return NextResponse.json({ ok: true, ms: Date.now() - start, count: list.length });
+    }
     const res = await fetchUpstream(`${url}?ac=videolist&wd=test`, {
       timeoutMs: 6000,
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36', Accept: 'application/json' },

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isArchiveSource, detailArchive } from '@/lib/archive-provider';
 import { guardRequest } from '@/lib/api-guard';
 import { cmsRequestHeaders, parseDetail, parseDetailPageHtml } from '@/lib/cms-parser';
 import { fetchUpstream, getCache, setCache } from '@/lib/fetch-utils';
@@ -57,6 +58,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: listVerdict.reason }, { status: 400 });
     }
 
+    if (isArchiveSource(source.url)) {
+      const detail = await detailArchive(source, id);
+      setCache(cacheKey, detail, DETAIL_CACHE_TTL);
+      return NextResponse.json(detail);
+    }
     let resolved: VideoDetail | null = null;
 
     // 1) 标准列表接口

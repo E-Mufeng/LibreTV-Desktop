@@ -97,6 +97,12 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
         ) : undefined
       }
     >
+      <div className="flex flex-wrap gap-3 text-xs mb-4 border-b border-line pb-3">
+        <Link href="/library?tab=saved" onClick={onClose} className="text-muted hover:text-accent">收藏待看</Link>
+        <Link href="/library?tab=liked" onClick={onClose} className="text-muted hover:text-accent">喜欢</Link>
+        <Link href="/library?tab=watched" onClick={onClose} className="text-muted hover:text-accent">看过</Link>
+        <button className="text-faint hover:text-accent ml-auto" onClick={() => { onClose(); window.setTimeout(() => window.dispatchEvent(new Event('libretv:shortcut-help')), 220); }}>快捷键</button>
+      </div>
       {!history ? (
         <LoadingState />
       ) : total === 0 ? (

@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Artplayer from 'artplayer';
+import artplayerPluginDanmuku, { type Result as DanmukuPluginResult } from 'artplayer-plugin-danmuku';
+import type { DanmakuRow } from '@/lib/danmaku';
 import Hls, { type HlsConfig } from 'hls.js';
+import { isNativeVideo } from '@/lib/media-kind';
 
 import { PlaybackRecovery, describeHlsError } from '@/lib/playback-recovery';
 import { createHlsLoader } from '@/lib/hls-loader';
@@ -52,6 +55,7 @@ export interface PlayerSkipApi {
   pause(): void;
   /** 当前是否处于暂停状态 */
   isPaused(): boolean;
+  loadDanmaku(rows: DanmakuRow[]): Promise<void>;
 }
 
 interface PlayerShellProps {
@@ -221,7 +225,7 @@ export function PlayerShell({
   // 当前集预取（episodeKey 缺省 = 关闭，见 ensure 内部 settings.enabled 判断）
   const ensurePrefetch = (mediaUrl: string, currentTime: number, horizonSeconds?: number) => {
     const p = propsRef.current;
-    if (!p.episodeKey) return;
+    if (!p.episodeKey || isNativeVideo(mediaUrl)) return;
     getVideoPrefetcher().ensure({
       m3u8Url: mediaUrl,
       currentTime,
@@ -349,8 +353,7 @@ export function PlayerShell({
     restoreCleanupRef.current = null;
     hlsRef.current?.destroy();
     currentMediaUrlRef.current = mediaUrl;
-    const hls = new Hls(buildHlsConfig());
-    hlsRef.current = hls;
+    hlsRef.current = null;
 
     let restoreInFlight = false;
     const restoreAndStart = async () => {
@@ -390,6 +393,15 @@ export function PlayerShell({
       restoreEvents.forEach((event) => video.removeEventListener(event, onRestoreEvent));
     };
 
+    if (isNativeVideo(mediaUrl)) {
+      // Fixed format dispatch, not a retry/fallback masquerading as HLS success.
+      video.src = mediaUrl.startsWith('/api/proxy') ? mediaUrl : `/api/proxy?url=${encodeURIComponent(mediaUrl)}`;
+      video.load();
+      void restoreAndStart();
+      return;
+    }
+    const hls = new Hls(buildHlsConfig());
+    hlsRef.current = hls;
     hls.loadSource(mediaUrl);
     hls.attachMedia(video);
 
@@ -530,6 +542,7 @@ export function PlayerShell({
       playsInline: true,
       airplay: true,
       hotkey: false,
+      plugins: [artplayerPluginDanmuku({ danmuku: [], emitter: false, visible: true, opacity: 0.7, fontSize: 22, antiOverlap: true, synchronousPlayback: true, margin: [10, '25%'] })],
       theme: '#2563eb',
       lang: navigator.language.toLowerCase().startsWith('zh') ? 'zh-cn' : 'en',
       moreVideoAttr: { crossOrigin: 'anonymous', playsInline: true },
@@ -618,6 +631,7 @@ export function PlayerShell({
         }
       },
       isPaused: () => artRef.current?.video?.paused ?? true,
+      loadDanmaku: async (rows) => { await (art.plugins.artplayerPluginDanmuku as DanmukuPluginResult).load(rows); },
     });
 
     /**
@@ -765,7 +779,7 @@ export function PlayerShell({
     const shortcuts = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       // 输入框或按钮获得焦点时不劫持按键：否则空格会吞掉按钮的默认激活
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('button')) return;
+      if (e.isComposing || e.ctrlKey || e.metaKey || document.querySelector('[aria-modal="true"]') || target.closest('input, textarea, select, button, [contenteditable="true"]')) return;
       const current = artRef.current;
       if (!current) return;
       if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); return; } // 由父层处理集数切换
@@ -785,6 +799,9 @@ export function PlayerShell({
           break;
         case ' ':
           current.toggle(); showHint('播放/暂停'); e.preventDefault();
+          break;
+        case 'm': case 'M':
+          current.muted = !current.muted; e.preventDefault();
           break;
         case 'f': case 'F':
           current.fullscreen = !current.fullscreen; e.preventDefault();
@@ -955,6 +972,8 @@ export function PlayerShell({
       style: { opacity: hasNextEpisode ? '1' : '0.4', pointerEvents: hasNextEpisode ? 'auto' : 'none' },
     });
   }, [hasPrevEpisode, hasNextEpisode, url]);
+
+  useEffect(() => { void artRef.current?.plugins.artplayerPluginDanmuku.load([]).catch(() => showHint('弹幕重置失败，可重新导入')); }, [url]);
 
   // —— 标记变化：重置采样基准并立即刷新提示 ——
   // 刚写入片段时当前时间可能恰好等于新边界，若沿用上一拍采样会被判成

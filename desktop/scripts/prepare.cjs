@@ -40,6 +40,23 @@ function copyPackageLicenses(directory) {
   }
 }
 copyPackageLicenses(path.join(server, 'node_modules'));
+// Client-only packages are bundled by webpack and absent from standalone traces.
+// Include their notices as well, rather than silently dropping browser licenses.
+const productionDependencies = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).dependencies;
+for (const name of Object.keys(productionDependencies)) {
+  const folder = path.join(root, 'node_modules', name);
+  const pkg = JSON.parse(fs.readFileSync(path.join(folder, 'package.json'), 'utf8'));
+  const notice = `${pkg.name}@${pkg.version}: ${JSON.stringify(pkg.license || 'See package license')}`;
+  if (!notices.includes(notice)) notices.push(notice);
+  for (const file of fs.readdirSync(folder)) {
+    if (/^(license|licence|copying|notice)(\.|$)/i.test(file) && fs.statSync(path.join(folder, file)).isFile()) {
+      const destination = path.join(licenses, pkg.name.replaceAll('/', '__') + '-' + pkg.version);
+      fs.mkdirSync(destination, { recursive: true });
+      fs.copyFileSync(path.join(folder, file), path.join(destination, file));
+    }
+  }
+}
+fs.copyFileSync(path.join(desktop, 'assets/licenses/ArtPlayer-MIT.txt'), path.join(licenses, 'ArtPlayer-MIT.txt'));
 fs.writeFileSync(path.join(licenses, 'THIRD-PARTY-NOTICES.txt'), notices.join('\n'));
 const sources = path.join(stage, 'sources', 'LibreTV');
 fs.mkdirSync(sources, { recursive: true });

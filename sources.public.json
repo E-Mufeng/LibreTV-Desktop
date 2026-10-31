@@ -36,6 +36,16 @@
       "name": "非凡资源",
       "url": "https://api.ffzyapi.com/api.php/provide/vod",
       "isAdult": false
+    },
+    {
+      "name": "吉吉资源",
+      "url": "https://caiji.jjzyapi.com/api.php/provide/vod",
+      "isAdult": false
+    },
+    {
+      "name": "Internet Archive·电影/动画",
+      "url": "https://archive.org/advancedsearch.php",
+      "isAdult": false
     }
   ],
   "liveSources": []

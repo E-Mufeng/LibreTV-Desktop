@@ -3,6 +3,7 @@ import { guardRequest, jsonError } from '@/lib/api-guard';
 import { checkLiveUrlAllowed, isBlockedByDNS, isValidProxyUrl } from '@/lib/ssrf';
 import { fetchWithSafeRedirects } from '@/lib/fetch-utils';
 import { rewriteM3u8, LIVE_STREAM_BASE } from '@/lib/m3u8';
+import { readBoundedText, withReadIdleTimeout } from './proxy-body';
 
 /**
  * 代理目标地址的两种传入形式：
@@ -18,6 +19,8 @@ import { rewriteM3u8, LIVE_STREAM_BASE } from '@/lib/m3u8';
 const TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT || '8000', 10);
 const MAX_RETRIES = parseInt(process.env.MAX_RETRIES || '1', 10);
 const HEADER_TIMEOUT_MS = 15_000;
+const MEDIA_READ_IDLE_MS = 30_000;
+const MAX_MANIFEST_BYTES = 4 * 1024 * 1024;
 const UA =
   process.env.USER_AGENT ||
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -92,18 +95,21 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
   let response: Response | undefined;
   let finalUrl = targetUrl;
   let lastError: unknown = null;
+  const upstream = new AbortController();
+  const signal = AbortSignal.any([req.signal, upstream.signal]);
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const result = await fetchWithSafeRedirects(targetUrl, {
         headers,
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
+        signal,
+      }, { headerTimeoutMs: TIMEOUT_MS });
       response = result.res;
       finalUrl = result.finalUrl;
       lastError = null;
       break;
     } catch (err) {
       lastError = err;
+      if (signal.aborted) break;
     }
   }
   if (!response) {
@@ -114,13 +120,23 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
   }
 
   const contentType = response.headers.get('content-type') || '';
+  const body = response.body
+    ? withReadIdleTimeout(response.body, MEDIA_READ_IDLE_MS, (reason) => upstream.abort(reason))
+    : null;
   const isM3u8 =
     contentType.includes('mpegurl') || contentType.includes('x-mpegurl') ||
-    targetUrl.toLowerCase().endsWith('.m3u8');
+    new URL(targetUrl).pathname.toLowerCase().endsWith('.m3u8');
 
   // m3u8 文本：重写为代理地址（以重定向后的最终 URL 为 base 解析相对地址）
   if (isM3u8) {
-    const text = await response.text();
+    let text: string;
+    try { text = await readBoundedText(body, MAX_MANIFEST_BYTES); }
+    catch (error) {
+      return jsonError(
+        error instanceof Error ? error.message : '源站播放列表读取失败',
+        error instanceof Error && error.name === 'TimeoutError' ? 504 : 502,
+      );
+    }
     return new NextResponse(rewriteM3u8(text, finalUrl), {
       status: response.status,
       headers: {
@@ -145,7 +161,7 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
   );
   outHeaders.set('Access-Control-Allow-Origin', '*');
 
-  return new NextResponse(response.body, {
+  return new NextResponse(body, {
     status: response.status,
     headers: outHeaders,
   });
@@ -154,9 +170,8 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
 /**
  * 直播流专用长连接代理（不复用 /api/proxy）：
  *
- * /api/proxy 的 AbortSignal.timeout(TIMEOUT_MS) 作用于整个响应流，
- * 8 秒后即切断长连接——对 HTTP-FLV（单一无限长连接）是致命的。
- * 本路由改为「仅对响应头等待设超时」（fetchWithSafeRedirects 的
+ * 点播代理使用响应头超时 + 30秒读空闲超时；本路由对无限直播
+ * 使用「仅对响应头等待设超时」（fetchWithSafeRedirects 的
  * headerTimeoutMs）：fetch 拿到响应头后立即清除计时器，
  * 之后 body 无限时长流式透传，直到客户端断开。
  *
